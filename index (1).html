@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QuestBook</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.39.3/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --page-bg: #e8d5a3;
+    --page-inner: #f0e4c4;
+    --page-border: #6b4c1e;
+    --page-shadow: #3d2a0a;
+    --spine-color: #7c4a1e;
+    --spine-dark: #4a2a0a;
+    --money-color: #c9b800;
+    --money-bg: rgba(255,248,140,0.25);
+    --money-border: #a8a000;
+    --health-color: #d44040;
+    --health-bg: rgba(255,180,180,0.2);
+    --health-border: #cc3333;
+    --tasks-color: #3a8fd4;
+    --tasks-bg: rgba(140,200,255,0.2);
+    --tasks-border: #2a7ac0;
+    --notes-color: #e8a020;
+    --notes-bg: rgba(255,200,100,0.2);
+    --notes-border: #d08a10;
+    --pixel: 'Press Start 2P', monospace;
+    --bg-dark: #1a1a2e;
+    --bg-mid: #2a2a4a;
+    --text-light: #f0e6d3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg-dark: #0f0f1a;
+      --bg-mid: #1a1a2e;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%; overflow: hidden;
+    background: var(--bg-dark);
+    font-family: var(--pixel);
+  }
+  body {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 30% 20%, #2a2a5a 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, #1a1a3a 0%, transparent 50%),
+                var(--bg-dark);
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.4), transparent);
+  }
+
+  /* ═══ LOGIN SCREEN ═══ */
+  .login-screen {
+    z-index: 100; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: 20px;
+  }
+  .login-screen.hidden { display: none; }
+  .login-title {
+    font-family: var(--pixel); font-size: 18px;
+    color: var(--money-color); letter-spacing: 2px;
+    text-shadow: 2px 2px 0 #333, 0 0 12px rgba(201,184,0,0.4);
+  }
+  .login-subtitle {
+    font-family: var(--pixel); font-size: 7px;
+    color: var(--text-light); opacity: 0.7; margin-top: -8px;
+  }
+  .login-box {
+    background: var(--bg-mid); border: 3px solid var(--money-color);
+    padding: 24px; display: flex; flex-direction: column; gap: 12px;
+    min-width: 280px; max-width: 340px;
+  }
+  .login-input {
+    font-family: var(--pixel); font-size: 9px;
+    padding: 10px 12px; border: 2px solid #555;
+    background: #1a1a2e; color: var(--text-light);
+    outline: none; width: 100%;
+  }
+  .login-input:focus { border-color: var(--money-color); }
+  .login-input::placeholder { color: #666; font-size: 7px; }
+  .login-btn {
+    font-family: var(--pixel); font-size: 9px;
+    padding: 12px; border: 2px solid var(--money-color);
+    background: var(--money-color); color: #1a1a2e;
+    cursor: pointer; transition: all 0.15s; font-weight: bold;
+  }
+  .login-btn:hover { background: #e0cc00; }
+  .login-btn:active { transform: translate(1px,1px); }
+  .login-btn.secondary {
+    background: transparent; color: var(--money-color);
+  }
+  .login-btn.secondary:hover { background: rgba(201,184,0,0.1); }
+  .login-error {
+    font-family: var(--pixel); font-size: 8px;
+    color: #ff6666; min-height: 18px;
+    line-height: 1.4; padding: 4px 0;
+  }
+  .login-toggle {
+    font-family: var(--pixel); font-size: 6px;
+    color: #888; cursor: pointer;
+  }
+  .login-toggle:hover { color: var(--money-color); }
+  .login-avatar-wrap { margin-bottom: 4px; }
+  .login-avatar { width: 64px; height: 64px; image-rendering: pixelated; }
+  .logout-btn {
+    font-family: var(--pixel); font-size: 6px;
+    background: none; border: 1px solid #555; color: #888;
+    padding: 3px 8px; cursor: pointer; position: fixed;
+    top: 8px; right: 8px; z-index: 50;
+  }
+  .logout-btn:hover { border-color: var(--money-color); color: var(--money-color); }
+
+  /* ═══ APP (hidden until logged in) ═══ */
+  .app-wrap { display: none; width: 100%; }
+  .app-wrap.visible {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100vh;
+  }
+
+  .app-title {
+    font-family: var(--pixel); font-size: 13px;
+    color: var(--money-color); letter-spacing: 2px;
+    margin-bottom: 6px; z-index: 1;
+    text-shadow: 2px 2px 0 #333, 0 0 8px rgba(201,184,0,0.3);
+  }
+  .sync-status {
+    font-family: var(--pixel); font-size: 5px;
+    color: #6a6; margin-left: 6px;
+  }
+
+  .main-container {
+    display: flex; align-items: flex-start; gap: 10px;
+    z-index: 1; max-width: 100%; padding: 0 6px;
+  }
+
+  /* ═══ BOOK ═══ */
+  .book {
+    position: relative;
+    width: min(440px, calc(100vw - 110px));
+    min-height: min(540px, calc(100vh - 100px));
+    max-height: calc(100vh - 80px);
+    display: flex; flex-direction: column;
+    background: var(--page-inner);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+  }
+  .book::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    border: 5px solid var(--page-border);
+    border-left-width: 0; border-radius: 3px;
+    box-shadow: inset 0 0 0 2px var(--spine-dark);
+  }
+  .book-spine {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 24px; z-index: 4;
+    background: linear-gradient(90deg, var(--spine-dark), var(--spine-color) 30%, var(--spine-color) 70%, var(--spine-dark));
+    border-right: 3px solid var(--page-border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  }
+  .spine-ring {
+    width: 14px; height: 6px; border-radius: 50%;
+    border: 2px solid #a06820; background: #c08030;
+  }
+
+  .page-header {
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 10px 14px 6px 34px; flex-shrink: 0;
+  }
+  .page-info {
+    font-family: var(--pixel); font-size: 8px;
+    color: var(--page-shadow); flex: 1; line-height: 1.6;
+  }
+  .page-info .day-name { color: var(--spine-color); font-size: 9px; }
+  .page-info .today-badge {
+    display: inline-block; background: #6a3; color: #fff;
+    font-size: 6px; padding: 2px 4px; margin-left: 4px; vertical-align: middle;
+  }
+  .page-number { font-family: var(--pixel); font-size: 7px; color: #999; white-space: nowrap; }
+
+  .nav-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 0 14px 8px 34px; flex-shrink: 0;
+  }
+  .nav-btn {
+    font-family: var(--pixel); font-size: 12px;
+    background: none; border: 2px solid var(--page-border);
+    color: var(--page-shadow); width: 28px; height: 28px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btn:hover { background: rgba(100,60,10,0.1); }
+  .nav-btn:active { transform: translate(1px,1px); }
+  .nav-btn.today-btn { font-size: 7px; width: auto; padding: 0 8px; }
+
+  .page-content {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 4px 12px 10px 32px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto; gap: 6px; align-content: start;
+  }
+  .page-content::-webkit-scrollbar { width: 5px; }
+  .page-content::-webkit-scrollbar-thumb { background: var(--page-border); }
+
+  .rect-block { border: 3px solid; border-radius: 2px; overflow: hidden; transition: all 0.2s ease; }
+  .rect-block[data-type="money"] { border-color: var(--money-border); grid-column: 1; }
+  .rect-block[data-type="health"] { border-color: var(--health-border); grid-column: 2; }
+  .rect-block[data-type="tasks"] { border-color: var(--tasks-border); grid-column: 1; }
+  .rect-block[data-type="notes"] { border-color: var(--notes-border); grid-column: 2; }
+  .rect-block.expanded { grid-column: 1 / -1; }
+
+  .rect-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 8px; cursor: pointer; user-select: none; min-height: 40px;
+  }
+  .rect-block[data-type="money"] .rect-header { background: var(--money-bg); }
+  .rect-block[data-type="health"] .rect-header { background: var(--health-bg); }
+  .rect-block[data-type="tasks"] .rect-header { background: var(--tasks-bg); }
+  .rect-block[data-type="notes"] .rect-header { background: var(--notes-bg); }
+
+  .rect-icon { font-size: 14px; }
+  .rect-title-text { font-family: var(--pixel); font-size: 7px; margin-left: 4px; }
+  .rect-block[data-type="money"] .rect-title-text { color: var(--money-border); }
+  .rect-block[data-type="health"] .rect-title-text { color: var(--health-border); }
+  .rect-block[data-type="tasks"] .rect-title-text { color: var(--tasks-border); }
+  .rect-block[data-type="notes"] .rect-title-text { color: var(--notes-border); }
+
+  .rect-summary {
+    font-family: var(--pixel); font-size: 6px;
+    color: #776040; margin-top: 4px; line-height: 1.6; padding: 0 8px 6px;
+  }
+  .rect-arrow {
+    font-size: 9px; color: #aaa; transition: transform 0.2s;
+    margin-left: auto; padding-left: 4px;
+  }
+  .rect-block.expanded .rect-arrow { transform: rotate(90deg); }
+  .rect-body {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+    background: rgba(255,255,255,0.4);
+  }
+  .rect-block.expanded .rect-body { max-height: 600px; }
+  .rect-body-inner { padding: 8px; }
+
+  .field-row { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; }
+  .field-label { font-family: var(--pixel); font-size: 7px; color: #665030; min-width: 50px; }
+  .field-input {
+    font-family: var(--pixel); font-size: 10px;
+    border: 2px solid #ccc; padding: 6px 8px;
+    background: #fff; color: #222; flex: 1; min-width: 0; outline: none; line-height: 1.4;
+  }
+  .field-input:focus { border-color: var(--spine-color); }
+  .field-input::placeholder { color: #aaa; font-size: 8px; }
+  .field-input[type="number"] { max-width: 90px; }
+
+  .toggle-row { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+  .toggle-btn {
+    font-family: var(--pixel); font-size: 8px;
+    padding: 6px 8px; border: 2px solid var(--health-border);
+    background: #fff; color: var(--health-border);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .toggle-btn.active { background: var(--health-border); color: #fff; }
+
+  .task-item {
+    display: flex; align-items: center; gap: 5px;
+    margin-bottom: 5px; font-family: var(--pixel); font-size: 8px; color: #222;
+  }
+  .task-check {
+    width: 14px; height: 14px; border: 2px solid var(--tasks-border);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; background: #fff; font-size: 9px;
+  }
+  .task-check.done { background: var(--tasks-border); color: #fff; }
+  .task-text { flex: 1; }
+  .task-text.done-text { text-decoration: line-through; opacity: 0.5; }
+  .task-deadline { font-size: 5px; color: #999; white-space: nowrap; }
+
+  .add-task-row { display: flex; gap: 3px; margin-top: 4px; }
+  .add-btn {
+    font-family: var(--pixel); font-size: 7px;
+    padding: 4px 7px; border: 2px solid; cursor: pointer; background: #fff;
+  }
+  .add-btn:hover { opacity: 0.8; }
+  .deadline-select {
+    font-family: var(--pixel); font-size: 8px;
+    border: 2px solid #ccc; padding: 4px 6px; background: #fff; color: #222;
+  }
+  .note-area {
+    font-family: var(--pixel); font-size: 10px;
+    border: 2px solid var(--notes-border); padding: 8px;
+    width: 100%; min-height: 60px; resize: vertical;
+    background: #fff; color: #222; outline: none; line-height: 1.8;
+  }
+  .note-area::placeholder { color: #aaa; font-size: 8px; }
+
+  .expense-item {
+    display: flex; justify-content: space-between;
+    font-family: var(--pixel); font-size: 8px;
+    padding: 3px 0; border-bottom: 1px dashed #ddd; color: #333;
+  }
+  .expense-total {
+    font-family: var(--pixel); font-size: 7px;
+    color: var(--money-border); margin-top: 4px; text-align: right;
+  }
+  .delete-btn {
+    background: none; border: none; color: #c44;
+    cursor: pointer; font-family: var(--pixel); font-size: 7px; padding: 0 3px;
+  }
+
+  .avatar-panel {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; z-index: 1; width: 76px; flex-shrink: 0;
+  }
+  .avatar-canvas { width: 64px; height: 64px; image-rendering: pixelated; }
+  .avatar-speech {
+    font-family: var(--pixel); font-size: 5px;
+    color: var(--text-light); background: var(--bg-mid);
+    border: 2px solid var(--money-color);
+    padding: 5px 6px; text-align: center; line-height: 1.6;
+    max-width: 84px; word-break: break-word;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .avatar-speech.visible { opacity: 1; }
+
+  .page-footer { display: flex; justify-content: flex-end; padding: 4px 14px 8px 34px; flex-shrink: 0; }
+  .page-turn-arrows { display: flex; gap: 2px; }
+  .page-turn-btn {
+    font-family: var(--pixel); font-size: 10px;
+    background: none; border: none; color: #aaa; cursor: pointer; padding: 2px 6px;
+  }
+  .page-turn-btn:hover { color: var(--page-shadow); }
+
+  .book.flipping .page-content, .book.flipping .page-header { animation: pageFlip 0.25s ease; }
+  @keyframes pageFlip {
+    0% { opacity: 1; transform: scaleX(1); }
+    40% { opacity: 0; transform: scaleX(0); }
+    60% { opacity: 0; transform: scaleX(0); }
+    100% { opacity: 1; transform: scaleX(1); }
+  }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .avatar-canvas.bouncing { animation: bounce 0.3s ease 2; }
+
+  @media (max-width: 540px) {
+    .main-container { flex-direction: column; align-items: center; }
+    .avatar-panel { flex-direction: row; width: auto; gap: 8px; order: -1; }
+    .avatar-speech { max-width: 160px; }
+    .book { width: min(440px, calc(100vw - 16px)); min-height: min(460px, calc(100vh - 140px)); }
+    .page-content { grid-template-columns: 1fr 1fr; padding-left: 30px; gap: 5px; }
+    .app-title { font-size: 10px; }
+  }
+  @media (max-width: 360px) {
+    .page-content { grid-template-columns: 1fr; }
+    .rect-block.expanded { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-avatar-wrap">
+    <canvas class="login-avatar" id="loginAvatar" width="64" height="64"></canvas>
+  </div>
+  <div class="login-title">📖 QuestBook</div>
+  <div class="login-subtitle">your personal quest companion</div>
+
+  <div class="login-box">
+    <input class="login-input" id="loginEmail" type="email" placeholder="email address">
+    <input class="login-input" id="loginPassword" type="password" placeholder="password">
+    <button class="login-btn" id="loginBtn">LOG IN</button>
+    <button class="login-btn secondary" id="signupBtn">SIGN UP</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-toggle" id="forgotLink">forgot password?</div>
+  </div>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<div class="app-wrap" id="appWrap">
+  <button class="logout-btn" id="logoutBtn">logout</button>
+
+  <div class="app-title">📖 QuestBook <span class="sync-status" id="syncStatus"></span></div>
+
+  <div class="main-container">
+    <div class="book" id="book">
+      <div class="book-spine">
+        <div class="spine-ring"></div><div class="spine-ring"></div>
+        <div class="spine-ring"></div><div class="spine-ring"></div>
+        <div class="spine-ring"></div>
+      </div>
+      <div class="page-header">
+        <div class="page-info" id="dateDisplay"></div>
+        <div class="page-number" id="pageNumber"></div>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn" id="prevBtn" title="Previous day">◀</button>
+        <button class="nav-btn today-btn" id="todayBtn">today</button>
+        <button class="nav-btn" id="nextBtn" title="Next day">▶</button>
+      </div>
+      <div class="page-content" id="pageContent"></div>
+      <div class="page-footer">
+        <div class="page-turn-arrows">
+          <button class="page-turn-btn" id="footPrev">⇦</button>
+          <button class="page-turn-btn" id="footNext">⇨</button>
+        </div>
+      </div>
+    </div>
+    <div class="avatar-panel">
+      <canvas class="avatar-canvas" id="avatarCanvas" width="64" height="64"></canvas>
+      <div class="avatar-speech" id="avatarSpeech"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// ═══ SUPABASE CONFIG — REPLACE THESE! ═══
+// ══════════════════════════════════════════
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+let supabase = null;
+let currentUser = null;
+
+// Initialize Supabase
+function initSupabase() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    console.warn('QuestBook: Supabase not configured — using localStorage only');
+    return false;
+  }
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return true;
+  } catch(e) {
+    console.error('Supabase init failed:', e);
+    return false;
+  }
+}
+
+const supabaseReady = initSupabase();
+
+// ═══ AUTH ═══
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+
+  if (!email || !pass) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ fill in both fields'; return; }
+  if (!email.includes('@') || !email.includes('.')) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ enter a valid email'; return; }
+  if (pass.length < 6) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ password: 6+ characters'; return; }
+
+  if (!supabaseReady) {
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ offline — cannot verify login';
+    return;
+  }
+
+  document.getElementById('loginBtn').textContent = '...';
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  document.getElementById('loginBtn').textContent = 'LOG IN';
+
+  if (error) {
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ ' + (error.message.includes('Invalid') ? 'wrong email or password' : error.message.toLowerCase());
+  } else {
+    currentUser = data.user;
+    showApp();
+  }
+}
+
+async function handleSignup() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+
+  if (!email || !pass) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ fill in both fields'; return; }
+  if (!email.includes('@') || !email.includes('.')) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ enter a valid email'; return; }
+  if (pass.length < 6) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ password: 6+ characters'; return; }
+
+  if (!supabaseReady) {
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ offline — cannot sign up';
+    return;
+  }
+
+  document.getElementById('signupBtn').textContent = '...';
+  const { data, error } = await supabase.auth.signUp({ email, password: pass });
+  document.getElementById('signupBtn').textContent = 'SIGN UP';
+
+  if (error) {
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ ' + error.message.toLowerCase();
+  } else if (data.user && data.user.identities?.length === 0) {
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ account exists — try logging in';
+  } else {
+    errEl.style.color = '#6a6';
+    errEl.textContent = '✓ check your email to confirm!';
+    // Only auto-login if email is confirmed (session exists means confirmed)
+    if (data.session && data.user?.confirmed_at) {
+      currentUser = data.user;
+      showApp();
+    }
+  }
+}
+
+async function handleLogout() {
+  if (supabaseReady) await supabase.auth.signOut();
+  currentUser = null;
+  allData = {};
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('appWrap').classList.remove('visible');
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+async function handleForgotPassword() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const errEl = document.getElementById('loginError');
+  if (!email) { errEl.textContent = 'enter your email first'; return; }
+  if (!supabaseReady) { errEl.textContent = 'offline mode — no reset needed'; return; }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  errEl.style.color = '#6a6';
+  errEl.textContent = error ? error.message : 'reset link sent! check email';
+}
+
+// ═══ CLOUD SYNC ═══
+let syncTimeout = null;
+const STORAGE_KEY = 'questbook_data';
+
+async function saveToCloud() {
+  if (!supabaseReady || !currentUser || currentUser.id === 'local') return;
+
+  const statusEl = document.getElementById('syncStatus');
+  statusEl.textContent = 'saving...';
+
+  try {
+    // Upsert all changed days
+    const entries = Object.entries(allData).map(([dk, data]) => ({
+      user_id: currentUser.id,
+      date_key: dk,
+      data: data,
+    }));
+
+    if (entries.length === 0) { statusEl.textContent = '✓ synced'; return; }
+
+    const { error } = await supabase
+      .from('questbook_days')
+      .upsert(entries, { onConflict: 'user_id,date_key' });
+
+    if (error) throw error;
+    statusEl.textContent = '✓ synced';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  } catch(e) {
+    console.error('Sync error:', e);
+    statusEl.textContent = '⚠ sync failed';
+  }
+}
+
+async function loadFromCloud() {
+  if (!supabaseReady || !currentUser || currentUser.id === 'local') {
+    loadFromLocal();
+    return;
+  }
+
+  const statusEl = document.getElementById('syncStatus');
+  statusEl.textContent = 'loading...';
+
+  try {
+    const { data, error } = await supabase
+      .from('questbook_days')
+      .select('date_key, data')
+      .eq('user_id', currentUser.id);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allData = {};
+      data.forEach(row => { allData[row.date_key] = row.data; });
+      // Also save to localStorage as cache
+      saveToLocal();
+    } else {
+      // No cloud data — check localStorage for migration
+      loadFromLocal();
+      if (Object.keys(allData).length > 0) {
+        // Migrate local data to cloud
+        await saveToCloud();
+      }
+    }
+    statusEl.textContent = '✓ loaded';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  } catch(e) {
+    console.error('Load error:', e);
+    statusEl.textContent = '⚠ using cached';
+    loadFromLocal();
+  }
+}
+
+function loadFromLocal() {
+  try { const r = localStorage.getItem(STORAGE_KEY); if (r) allData = JSON.parse(r); } catch(e) { allData = {}; }
+}
+
+function saveToLocal() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allData)); } catch(e) {}
+}
+
+function saveAll() {
+  saveToLocal();
+  // Debounce cloud save
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => saveToCloud(), 1500);
+}
+
+// ═══ STATE ═══
+let currentDate = new Date();
+let allData = {};
+
+function dateKey(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function getDayData(dk) {
+  if(!allData[dk]) {
+    allData[dk] = {
+      money: { budget:'', expenses:[] },
+      health: { shower:false, ateWell:false, workout:false, note:'' },
+      tasks: [],
+      notes: ''
+    };
+  }
+  return allData[dk];
+}
+function isToday(d) {
+  const t=new Date();
+  return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate();
+}
+const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function getPageNumber(d) { return d.getDate(); }
+function getDaysInMonth(d) { return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); }
+
+// ═══ RENDER ═══
+function renderPage() {
+  const dk = dateKey(currentDate);
+  const data = getDayData(dk);
+  const today = isToday(currentDate);
+
+  document.getElementById('dateDisplay').innerHTML = `
+    <span class="day-name">${dayNames[currentDate.getDay()]}</span><br>
+    ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}
+    ${today?'<span class="today-badge">today</span>':''}
+  `;
+  document.getElementById('pageNumber').textContent = `Page ${getPageNumber(currentDate)} of ${getDaysInMonth(currentDate)}`;
+
+  const pc = document.getElementById('pageContent');
+  pc.innerHTML = '';
+
+  const stats = analyzeAll();
+
+  // MONEY
+  const totalSpent = data.money.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const budget = parseFloat(data.money.budget)||0;
+  let mSummary = '';
+  if(budget>0 && data.money.expenses.length>0) {
+    const left = budget-totalSpent;
+    mSummary = `${budget} budget\n-${totalSpent.toFixed(1)} spent\n=${left.toFixed(1)} left`;
+  } else if(data.money.expenses.length>0) {
+    mSummary = data.money.expenses.slice(0,2).map(e=>e.name+': '+parseFloat(e.amount).toFixed(0)).join(', ')+(data.money.expenses.length>2?' ...':'');
+  } else { mSummary = 'tap to add'; }
+  if(stats.money.trend==='up') mSummary+='\n📈 spending up';
+  else if(stats.money.trend==='down') mSummary+='\n📉 saving more!';
+  if(stats.money.streakUnder>=3) mSummary+=`\n🔥 ${stats.money.streakUnder}d under budget`;
+  pc.appendChild(makeRect('money','💰','Gold', mSummary, renderMoneyBody(data,dk)));
+
+  // HEALTH
+  const hCount=[data.health.shower,data.health.ateWell,data.health.workout].filter(Boolean).length;
+  const hItems=[];
+  if(data.health.shower) hItems.push('🚿');
+  if(data.health.ateWell) hItems.push('🥗');
+  if(data.health.workout) hItems.push('🏋️');
+  let hSummary = hCount===3?'★ all done!': hCount>0? hItems.join(' ')+` ${hCount}/3`:'tap to track';
+  if(stats.health.workoutStreak>=3) hSummary+=`\n🔥 ${stats.health.workoutStreak}d workout streak`;
+  else if(stats.health.ateWellStreak>=3) hSummary+=`\n🔥 ${stats.health.ateWellStreak}d eating streak`;
+  else if(stats.health.showerStreak>=3) hSummary+=`\n🔥 ${stats.health.showerStreak}d clean streak`;
+  pc.appendChild(makeRect('health','❤️','Health', hSummary, renderHealthBody(data,dk)));
+
+  // TASKS
+  const doneCount = data.tasks.filter(t=>t.done).length;
+  let tSummary = '';
+  if(data.tasks.length>0) {
+    const next = data.tasks.find(t=>!t.done);
+    tSummary = `${doneCount}/${data.tasks.length} done`;
+    if(next) tSummary += `\nnext: ${next.text.substring(0,16)}`;
+  } else { tSummary = 'no quests yet'; }
+  if(stats.tasks.completionRate>0) tSummary+=`\n📊 ${stats.tasks.completionRate}% all-time`;
+  if(stats.tasks.overdueEstimate>0) tSummary+=`\n⚠️ ${stats.tasks.overdueEstimate} old undone`;
+  pc.appendChild(makeRect('tasks','⚔️','Quests', tSummary, renderTasksBody(data,dk)));
+
+  // NOTES
+  let nSummary = data.notes.length>0 ? data.notes.substring(0,50)+(data.notes.length>50?'...':'') : 'tap to write';
+  if(stats.notes.streak>=3) nSummary+=`\n📝 ${stats.notes.streak}d writing streak`;
+  pc.appendChild(makeRect('notes','📜','Notes', nSummary, renderNotesBody(data,dk)));
+
+  updateAvatar(data);
+}
+
+function makeRect(type, icon, title, summary, bodyEl) {
+  const block = document.createElement('div');
+  block.className = 'rect-block'; block.dataset.type = type;
+  const header = document.createElement('div');
+  header.className = 'rect-header';
+  header.innerHTML = `<span class="rect-icon">${icon}</span><span class="rect-title-text">${title}</span><span class="rect-arrow">▶</span>`;
+  header.onclick = () => {
+    if(!block.classList.contains('expanded')) {
+      document.querySelectorAll('.rect-block.expanded').forEach(b=>{ if(b!==block) b.classList.remove('expanded'); });
+    }
+    block.classList.toggle('expanded');
+    avatarComment(type, getDayData(dateKey(currentDate)));
+  };
+  const summaryEl = document.createElement('div');
+  summaryEl.className = 'rect-summary'; summaryEl.textContent = summary; summaryEl.style.whiteSpace = 'pre-line';
+  const body = document.createElement('div'); body.className = 'rect-body';
+  const inner = document.createElement('div'); inner.className = 'rect-body-inner';
+  inner.appendChild(bodyEl); body.appendChild(inner);
+  block.appendChild(header); block.appendChild(summaryEl); block.appendChild(body);
+  return block;
+}
+
+// ═══ SECTION RENDERERS ═══
+function renderMoneyBody(data, dk) {
+  const el = document.createElement('div');
+  const budgetRow = document.createElement('div'); budgetRow.className = 'field-row';
+  budgetRow.innerHTML = `<span class="field-label">Budget:</span>`;
+  const budgetIn = document.createElement('input');
+  budgetIn.type='number'; budgetIn.className='field-input'; budgetIn.placeholder='daily budget';
+  budgetIn.value = data.money.budget;
+  budgetIn.onchange = ()=>{ data.money.budget=budgetIn.value; saveAll(); renderPage(); triggerAvatarReaction(); };
+  budgetRow.appendChild(budgetIn); el.appendChild(budgetRow);
+
+  const addRow = document.createElement('div'); addRow.className = 'field-row';
+  const nameIn = document.createElement('input');
+  nameIn.className='field-input'; nameIn.placeholder='spent on...'; nameIn.style.flex='2';
+  const amtIn = document.createElement('input');
+  amtIn.type='number'; amtIn.className='field-input'; amtIn.placeholder='$';
+  const addBtn = document.createElement('button');
+  addBtn.className='add-btn'; addBtn.style.borderColor='var(--money-border)';
+  addBtn.style.color='var(--money-border)'; addBtn.textContent='+';
+  addBtn.onclick=()=>{
+    if(nameIn.value.trim()&&amtIn.value){
+      data.money.expenses.push({name:nameIn.value.trim(),amount:amtIn.value});
+      saveAll(); renderPage(); triggerAvatarReaction();
+    }
+  };
+  nameIn.onkeydown=(e)=>{if(e.key==='Enter')amtIn.focus();};
+  amtIn.onkeydown=(e)=>{if(e.key==='Enter')addBtn.click();};
+  addRow.appendChild(nameIn); addRow.appendChild(amtIn); addRow.appendChild(addBtn);
+  el.appendChild(addRow);
+
+  data.money.expenses.forEach((exp,i)=>{
+    const item = document.createElement('div'); item.className='expense-item';
+    item.innerHTML=`<span>${exp.name}</span><span>${parseFloat(exp.amount).toFixed(1)} <button class="delete-btn" data-i="${i}">×</button></span>`;
+    item.querySelector('.delete-btn').onclick=(e)=>{ e.stopPropagation(); data.money.expenses.splice(i,1); saveAll(); renderPage(); };
+    el.appendChild(item);
+  });
+
+  const total = data.money.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  if(data.money.expenses.length>0){
+    const te = document.createElement('div'); te.className='expense-total';
+    const b=parseFloat(data.money.budget)||0; const left=b-total;
+    te.textContent = b>0?`spent: ${total.toFixed(1)} | left: ${left.toFixed(1)}`:`total: ${total.toFixed(1)}`;
+    if(b>0&&left<0) te.style.color='#c44';
+    el.appendChild(te);
+  }
+  return el;
+}
+
+function renderHealthBody(data,dk) {
+  const el = document.createElement('div');
+  const toggles=[{key:'shower',label:'🚿 Clean'},{key:'ateWell',label:'🥗 Ate well'},{key:'workout',label:'🏋️ Workout'}];
+  const row = document.createElement('div'); row.className='toggle-row';
+  toggles.forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className='toggle-btn'+(data.health[t.key]?' active':''); btn.textContent=t.label;
+    btn.onclick=()=>{data.health[t.key]=!data.health[t.key];saveAll();renderPage();triggerAvatarReaction();};
+    row.appendChild(btn);
+  });
+  el.appendChild(row);
+  const noteRow = document.createElement('div'); noteRow.className='field-row';
+  noteRow.innerHTML=`<span class="field-label">Note:</span>`;
+  const noteIn = document.createElement('input');
+  noteIn.className='field-input'; noteIn.placeholder='health notes...'; noteIn.value=data.health.note||'';
+  noteIn.onchange=()=>{data.health.note=noteIn.value;saveAll();};
+  noteRow.appendChild(noteIn); el.appendChild(noteRow);
+  return el;
+}
+
+function renderTasksBody(data,dk) {
+  const el = document.createElement('div');
+  data.tasks.forEach((task,i)=>{
+    const item = document.createElement('div'); item.className='task-item';
+    const check = document.createElement('div');
+    check.className='task-check'+(task.done?' done':''); check.textContent=task.done?'✓':'';
+    check.onclick=()=>{task.done=!task.done;saveAll();renderPage();triggerAvatarReaction();};
+    const text = document.createElement('span');
+    text.className='task-text'+(task.done?' done-text':''); text.textContent=task.text;
+    const dl = document.createElement('span'); dl.className='task-deadline'; dl.textContent=task.deadline||'';
+    const del = document.createElement('button'); del.className='delete-btn'; del.textContent='×';
+    del.onclick=()=>{data.tasks.splice(i,1);saveAll();renderPage();};
+    item.appendChild(check); item.appendChild(text); item.appendChild(dl); item.appendChild(del);
+    el.appendChild(item);
+  });
+  const addRow = document.createElement('div'); addRow.className='add-task-row';
+  const taskIn = document.createElement('input');
+  taskIn.className='field-input'; taskIn.placeholder='new quest...'; taskIn.style.flex='1';
+  const dlSelect = document.createElement('select'); dlSelect.className='deadline-select';
+  ['no deadline','tomorrow','this week','this month'].forEach(opt=>{
+    const o=document.createElement('option'); o.value=opt==='no deadline'?'':opt; o.textContent=opt; dlSelect.appendChild(o);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className='add-btn'; addBtn.style.borderColor='var(--tasks-border)';
+  addBtn.style.color='var(--tasks-border)'; addBtn.textContent='+';
+  addBtn.onclick=()=>{
+    if(taskIn.value.trim()){
+      data.tasks.push({text:taskIn.value.trim(),done:false,deadline:dlSelect.value});
+      saveAll();renderPage();triggerAvatarReaction();
+    }
+  };
+  taskIn.onkeydown=(e)=>{if(e.key==='Enter')addBtn.click();};
+  addRow.appendChild(taskIn); addRow.appendChild(dlSelect); addRow.appendChild(addBtn);
+  el.appendChild(addRow);
+  return el;
+}
+
+function renderNotesBody(data,dk) {
+  const el = document.createElement('div');
+  const ta = document.createElement('textarea');
+  ta.className='note-area'; ta.placeholder='write something to remember...'; ta.value = data.notes;
+  ta.oninput = ()=>{
+    data.notes = ta.value; saveAll();
+    const block = ta.closest('.rect-block');
+    if(block){ const sum = block.querySelector('.rect-summary');
+      if(sum) sum.textContent = ta.value.length>0 ? ta.value.substring(0,50)+(ta.value.length>50?'...':'') : 'tap to write';
+    }
+  };
+  ta.onblur = ()=>{ triggerAvatarReaction(); };
+  el.appendChild(ta); return el;
+}
+
+// ═══ NAVIGATION ═══
+document.getElementById('prevBtn').onclick = ()=>flipPage(-1);
+document.getElementById('nextBtn').onclick = ()=>flipPage(1);
+document.getElementById('footPrev').onclick = ()=>flipPage(-1);
+document.getElementById('footNext').onclick = ()=>flipPage(1);
+document.getElementById('todayBtn').onclick = ()=>{
+  currentDate=new Date();
+  const book=document.getElementById('book');
+  book.classList.add('flipping');
+  setTimeout(()=>{renderPage();book.classList.remove('flipping');},250);
+};
+function flipPage(dir) {
+  const book=document.getElementById('book');
+  book.classList.add('flipping');
+  setTimeout(()=>{
+    currentDate.setDate(currentDate.getDate()+dir);
+    currentDate=new Date(currentDate);
+    renderPage(); book.classList.remove('flipping');
+  },120);
+}
+
+// ═══ AVATAR ═══
+const canvas = document.getElementById('avatarCanvas');
+const ctx = canvas.getContext('2d');
+const C={skin:'#ffcc99',hair:'#5a3825',eyes:'#222',shirt:'#4a7abc',pants:'#3a5a8c',outline:'#2a1a0a',mouth:'#c44',blush:'#ff9999',hat:'#d4a017'};
+
+function px(x,y,col,sz=4){ctx.fillStyle=col;ctx.fillRect(x*sz,y*sz,sz,sz);}
+
+function drawAvatar(mood){
+  ctx.clearRect(0,0,64,64); const p=px;
+  [5,6,7,8,9,10].forEach(x=>p(x,1,C.hat));
+  [4,5,6,7,8,9,10,11].forEach(x=>p(x,2,C.hat));
+  [5,6,7,8,9,10].forEach(x=>p(x,3,C.hair));
+  [4,5].forEach(x=>p(x,4,C.hair));[10,11].forEach(x=>p(x,4,C.hair));
+  [6,7,8,9].forEach(x=>{p(x,4,C.skin);p(x,5,C.skin);p(x,6,C.skin);p(x,7,C.skin);});
+  [5,10].forEach(x=>{p(x,5,C.skin);p(x,6,C.skin);});
+  p(6,5,C.eyes);p(9,5,C.eyes);
+  if(mood==='happy'){p(7,7,C.mouth);p(8,7,C.mouth);p(6,6,C.blush);p(9,6,C.blush);}
+  else if(mood==='sad'){p(7,7,C.outline);p(8,7,C.outline);}
+  else if(mood==='worried'){p(7,7,C.mouth);}
+  else{p(7,6,C.mouth);p(8,6,C.mouth);}
+  [5,6,7,8,9,10].forEach(x=>{p(x,8,C.shirt);p(x,9,C.shirt);});
+  [4,5,10,11].forEach(x=>p(x,10,C.shirt));[6,7,8,9].forEach(x=>p(x,10,C.shirt));
+  [3,4].forEach(x=>p(x,9,C.skin));[11,12].forEach(x=>p(x,9,C.skin));
+  [6,7,8,9].forEach(x=>p(x,11,C.pants));
+  [6,7].forEach(x=>p(x,12,C.pants));[8,9].forEach(x=>p(x,12,C.pants));
+  [5,6,7].forEach(x=>p(x,13,C.hair));[8,9,10].forEach(x=>p(x,13,C.hair));
+}
+
+// Draw avatar on login screen too
+function drawLoginAvatar() {
+  const c = document.getElementById('loginAvatar');
+  const cx = c.getContext('2d');
+  const lp = (x,y,col,sz=4)=>{cx.fillStyle=col;cx.fillRect(x*sz,y*sz,sz,sz);};
+  [5,6,7,8,9,10].forEach(x=>lp(x,1,C.hat));
+  [4,5,6,7,8,9,10,11].forEach(x=>lp(x,2,C.hat));
+  [5,6,7,8,9,10].forEach(x=>lp(x,3,C.hair));
+  [4,5].forEach(x=>lp(x,4,C.hair));[10,11].forEach(x=>lp(x,4,C.hair));
+  [6,7,8,9].forEach(x=>{lp(x,4,C.skin);lp(x,5,C.skin);lp(x,6,C.skin);lp(x,7,C.skin);});
+  [5,10].forEach(x=>{lp(x,5,C.skin);lp(x,6,C.skin);});
+  lp(6,5,C.eyes);lp(9,5,C.eyes);
+  lp(7,6,C.mouth);lp(8,6,C.mouth);
+  [5,6,7,8,9,10].forEach(x=>{lp(x,8,C.shirt);lp(x,9,C.shirt);});
+  [4,5,10,11].forEach(x=>lp(x,10,C.shirt));[6,7,8,9].forEach(x=>lp(x,10,C.shirt));
+  [3,4].forEach(x=>lp(x,9,C.skin));[11,12].forEach(x=>lp(x,9,C.skin));
+  [6,7,8,9].forEach(x=>lp(x,11,C.pants));
+  [6,7].forEach(x=>lp(x,12,C.pants));[8,9].forEach(x=>lp(x,12,C.pants));
+  [5,6,7].forEach(x=>lp(x,13,C.hair));[8,9,10].forEach(x=>lp(x,13,C.hair));
+}
+
+function updateAvatar(data){
+  const hc=[data.health.shower,data.health.ateWell,data.health.workout].filter(Boolean).length;
+  const dc=data.tasks.filter(t=>t.done).length; const tt=data.tasks.length;
+  const budget=parseFloat(data.money.budget)||0;
+  const spent=data.money.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const empty=tt===0&&data.money.expenses.length===0&&hc===0&&!data.notes;
+  let mood='neutral';
+  if(empty) mood='sad'; else if(budget>0&&spent>budget) mood='worried';
+  else if(hc===3&&tt>0&&dc===tt) mood='happy'; else if(hc>=2||(tt>0&&dc>=tt/2)) mood='good';
+  drawAvatar(mood);
+}
+
+function avatarComment(section,data){
+  const el=document.getElementById('avatarSpeech');
+  let msg = smartComment(section, data);
+  if(!msg) {
+    if(section==='money') msg="Tracking gold!"; else if(section==='health') msg="Keep going!";
+    else if(section==='tasks') msg="On it!"; else msg="Write something!";
+  }
+  el.textContent=msg; el.style.whiteSpace='pre-line';
+  el.classList.add('visible');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('visible'),4500);
+}
+
+function triggerAvatarReaction(){
+  canvas.classList.add('bouncing');
+  setTimeout(()=>canvas.classList.remove('bouncing'),600);
+}
+
+// ═══ DATA ANALYSIS ═══
+function getRecentDays(n) {
+  const result = []; const seen = new Set();
+  const dd = new Date(currentDate);
+  for(let i=1; i<=n; i++){
+    dd.setDate(dd.getDate()-1);
+    const k = dateKey(dd);
+    if(!seen.has(k) && allData[k]) { result.push({key:k, data:allData[k]}); seen.add(k); }
+  }
+  return result;
+}
+
+function analyzeAll() {
+  const past = getRecentDays(30); const past7 = past.slice(0, 7);
+  return { money: analyzeMoney(past, past7), health: analyzeHealth(past, past7),
+    tasks: analyzeTasks(past, past7), notes: analyzeNotes(past, past7), daysTracked: past.length };
+}
+
+function analyzeMoney(past, past7) {
+  const result = { avgSpend:0, trend:'', weekSpend:0, topCategory:'', overspendDays:0, streakUnder:0 };
+  if(!past.length) return result;
+  const spends = past.map(d => d.data.money.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0));
+  result.avgSpend = spends.reduce((a,b)=>a+b,0) / spends.length;
+  const weekSpends = past7.map(d => d.data.money.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0));
+  result.weekSpend = weekSpends.reduce((a,b)=>a+b,0);
+  const prev7 = past.slice(7,14);
+  if(prev7.length>=3 && past7.length>=3) {
+    const recentAvg = weekSpends.reduce((a,b)=>a+b,0)/past7.length;
+    const oldSpends = prev7.map(d=>d.data.money.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0));
+    const oldAvg = oldSpends.reduce((a,b)=>a+b,0)/prev7.length;
+    if(recentAvg > oldAvg*1.2) result.trend = 'up';
+    else if(recentAvg < oldAvg*0.8) result.trend = 'down'; else result.trend = 'stable';
+  }
+  const catMap = {};
+  past.forEach(d => d.data.money.expenses.forEach(e => { const n=e.name.toLowerCase(); catMap[n]=(catMap[n]||0)+(parseFloat(e.amount)||0); }));
+  const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  if(sorted.length>0) result.topCategory = sorted[0][0];
+  past.forEach(d => { const b=parseFloat(d.data.money.budget)||0; const s=d.data.money.expenses.reduce((a,e)=>a+(parseFloat(e.amount)||0),0); if(b>0&&s>b) result.overspendDays++; });
+  let streak=0;
+  for(const d of past) { const b=parseFloat(d.data.money.budget)||0; const s=d.data.money.expenses.reduce((a,e)=>a+(parseFloat(e.amount)||0),0); if(b>0&&s<=b) streak++; else break; }
+  result.streakUnder = streak;
+  return result;
+}
+
+function analyzeHealth(past, past7) {
+  const result = { showerStreak:0, workoutStreak:0, ateWellStreak:0, perfectDays:0, weekScore:0, bestHabit:'', worstHabit:'' };
+  if(!past.length) return result;
+  let ss=0,ws=0,as=0;
+  for(const d of past) { if(d.data.health.shower) ss++; else break; } result.showerStreak=ss;
+  for(const d of past) { if(d.data.health.workout) ws++; else break; } result.workoutStreak=ws;
+  for(const d of past) { if(d.data.health.ateWell) as++; else break; } result.ateWellStreak=as;
+  result.perfectDays = past.filter(d => d.data.health.shower && d.data.health.ateWell && d.data.health.workout).length;
+  result.weekScore = past7.reduce((s,d) => s+(d.data.health.shower?1:0)+(d.data.health.ateWell?1:0)+(d.data.health.workout?1:0), 0);
+  const counts = { shower:0, ateWell:0, workout:0 };
+  past.forEach(d => { if(d.data.health.shower)counts.shower++; if(d.data.health.ateWell)counts.ateWell++; if(d.data.health.workout)counts.workout++; });
+  const labels = { shower:'🚿 Cleanliness', ateWell:'🥗 Eating', workout:'🏋️ Exercise' };
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  result.bestHabit = labels[sorted[0][0]]; result.worstHabit = labels[sorted[sorted.length-1][0]];
+  return result;
+}
+
+function analyzeTasks(past, past7) {
+  const result = { completionRate:0, totalCreated:0, totalDone:0, weekRate:0, overdueEstimate:0, avgPerDay:0 };
+  if(!past.length) return result;
+  result.totalCreated = past.reduce((s,d) => s+d.data.tasks.length, 0);
+  result.totalDone = past.reduce((s,d) => s+d.data.tasks.filter(t=>t.done).length, 0);
+  result.completionRate = result.totalCreated>0 ? Math.round((result.totalDone/result.totalCreated)*100) : 0;
+  result.avgPerDay = past.length>0 ? (result.totalCreated/past.length).toFixed(1) : 0;
+  const weekCreated = past7.reduce((s,d) => s+d.data.tasks.length, 0);
+  const weekDone = past7.reduce((s,d) => s+d.data.tasks.filter(t=>t.done).length, 0);
+  result.weekRate = weekCreated>0 ? Math.round((weekDone/weekCreated)*100) : 0;
+  result.overdueEstimate = past.reduce((s,d) => s+d.data.tasks.filter(t=>!t.done && t.deadline).length, 0);
+  return result;
+}
+
+function analyzeNotes(past, past7) {
+  const result = { totalNotes:0, avgLength:0, streak:0, weekNotes:0, longestNote:0 };
+  if(!past.length) return result;
+  const withNotes = past.filter(d => d.data.notes && d.data.notes.trim().length>0);
+  result.totalNotes = withNotes.length;
+  if(withNotes.length>0) {
+    result.avgLength = Math.round(withNotes.reduce((s,d) => s+d.data.notes.length, 0) / withNotes.length);
+    result.longestNote = Math.max(...withNotes.map(d=>d.data.notes.length));
+  }
+  result.weekNotes = past7.filter(d => d.data.notes && d.data.notes.trim().length>0).length;
+  let ns=0; for(const d of past) { if(d.data.notes && d.data.notes.trim()) ns++; else break; } result.streak = ns;
+  return result;
+}
+
+function smartComment(section, data) {
+  const analysis = analyzeAll(); const a = analysis[section]; const msgs = [];
+  if(section==='money') {
+    const b=parseFloat(data.money.budget)||0; const s=data.money.expenses.reduce((x,e)=>x+(parseFloat(e.amount)||0),0);
+    if(b>0&&s>b) msgs.push("⚠️ Over budget today!"); else if(b>0&&s>b*0.8) msgs.push("⚠️ Almost at limit!"); else if(s===0) msgs.push("No spending yet today");
+    if(a.trend==='up') msgs.push("📈 Spending going UP!"); else if(a.trend==='down') msgs.push("📉 Spending DOWN! Nice!"); else if(a.trend==='stable') msgs.push("💰 Spending steady");
+    if(a.streakUnder>=3) msgs.push(`🔥 ${a.streakUnder}d under budget!`);
+    if(a.overspendDays>=3) msgs.push(`😬 Over budget ${a.overspendDays}x recently`);
+    if(a.topCategory) msgs.push(`Most spent on: ${a.topCategory}`);
+  } else if(section==='health') {
+    const hc=[data.health.shower,data.health.ateWell,data.health.workout].filter(Boolean).length;
+    if(hc===3) msgs.push("★ Perfect day!"); else if(hc===0) msgs.push("No health tracked!");
+    if(a.workoutStreak>=3) msgs.push(`🔥 ${a.workoutStreak}d workout streak!`); else if(a.workoutStreak===0&&analysis.daysTracked>2) msgs.push("💪 Workout today?");
+    if(a.ateWellStreak>=3) msgs.push(`🥗 ${a.ateWellStreak}d eating well!`);
+    if(a.perfectDays>=5) msgs.push(`⭐ ${a.perfectDays} perfect days!`);
+    if(analysis.daysTracked>=7) msgs.push(`Week: ${Math.round((a.weekScore/21)*100)}% health`);
+  } else if(section==='tasks') {
+    const d=data.tasks.filter(t=>t.done).length; const t=data.tasks.length;
+    if(t===0) msgs.push("Add quests!"); else if(d===t) msgs.push("✓ All done!"); else msgs.push(`${t-d} quests left`);
+    if(a.completionRate>0) msgs.push(`Overall: ${a.completionRate}%`);
+    if(a.weekRate>80) msgs.push("🔥 80%+ this week!"); else if(a.weekRate>0&&a.weekRate<40) msgs.push("📋 Falling behind...");
+    if(a.overdueEstimate>0) msgs.push(`⚠️ ${a.overdueEstimate} old undone`);
+  } else if(section==='notes') {
+    if(!data.notes||!data.notes.trim()) msgs.push("Write something!"); else msgs.push(`${data.notes.length} chars today`);
+    if(a.streak>=3) msgs.push(`📝 ${a.streak}d streak!`); else if(a.streak===0&&analysis.daysTracked>2) msgs.push("Write today?");
+    if(a.weekNotes>0) msgs.push(`${a.weekNotes}/7 days this week`);
+  }
+  if(!msgs.length) return ''; return msgs.slice(0,2).join('\n');
+}
+
+// ═══ STARTUP ═══
+const speeches={happy:["Great job!","You're on fire!","Keep it up!"],neutral:["Let's go!","New page!","What's the plan?"],sad:["Where are you?","Empty page...","Need quests!"]};
+
+function startupSpeech(){
+  const data=getDayData(dateKey(currentDate)); const analysis=analyzeAll();
+  const hc=[data.health.shower,data.health.ateWell,data.health.workout].filter(Boolean).length;
+  const empty=!data.tasks.length&&!data.money.expenses.length&&hc===0&&!data.notes;
+  let msg='';
+  if(analysis.daysTracked>=3){
+    const h=[];
+    if(analysis.health.workoutStreak>=3) h.push(`🔥 ${analysis.health.workoutStreak}d workout streak!`);
+    if(analysis.money.streakUnder>=3) h.push(`💰 ${analysis.money.streakUnder}d under budget!`);
+    if(analysis.tasks.weekRate>=80) h.push(`⚔️ ${analysis.tasks.weekRate}% quests done!`);
+    if(analysis.notes.streak>=3) h.push(`📝 ${analysis.notes.streak}d writing streak!`);
+    if(analysis.money.trend==='up') h.push('📈 Spending rising...');
+    if(analysis.tasks.overdueEstimate>2) h.push(`⚠️ ${analysis.tasks.overdueEstimate} old quests!`);
+    msg = h.length>0 ? h[Math.floor(Math.random()*h.length)] : `${analysis.daysTracked} days tracked!`;
+  } else {
+    const mood=empty?'sad':hc>=2?'happy':'neutral';
+    msg = speeches[mood][Math.floor(Math.random()*speeches[mood].length)];
+  }
+  const el=document.getElementById('avatarSpeech'); el.textContent=msg;
+  setTimeout(()=>el.classList.add('visible'),500);
+  el._t=setTimeout(()=>el.classList.remove('visible'),5000);
+}
+
+// ═══ APP SHOW ═══
+async function showApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appWrap').classList.add('visible');
+  await loadFromCloud();
+  renderPage();
+  drawAvatar('neutral');
+  startupSpeech();
+}
+
+// ═══ EVENT LISTENERS ═══
+document.getElementById('loginBtn').onclick = handleLogin;
+document.getElementById('signupBtn').onclick = handleSignup;
+document.getElementById('logoutBtn').onclick = handleLogout;
+document.getElementById('forgotLink').onclick = handleForgotPassword;
+document.getElementById('loginPassword').onkeydown = (e)=>{ if(e.key==='Enter') handleLogin(); };
+
+// ═══ CHECK EXISTING SESSION ═══
+async function checkSession() {
+  drawLoginAvatar();
+  if (!supabaseReady) return; // Stay on login
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    showApp();
+  }
+}
+
+checkSession();
+</script>
+</body>
+</html>
