@@ -107,8 +107,9 @@
   }
   .login-btn.secondary:hover { background: rgba(201,184,0,0.1); }
   .login-error {
-    font-family: var(--pixel); font-size: 6px;
-    color: #ff6666; min-height: 14px;
+    font-family: var(--pixel); font-size: 8px;
+    color: #ff6666; min-height: 18px;
+    line-height: 1.4; padding: 4px 0;
   }
   .login-toggle {
     font-family: var(--pixel); font-size: 6px;
@@ -430,8 +431,8 @@
 // ══════════════════════════════════════════
 // ═══ SUPABASE CONFIG — REPLACE THESE! ═══
 // ══════════════════════════════════════════
-const SUPABASE_URL = 'https://liuptkxtqpjmmsbeinru.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_hAQPSGaToA3L7GHWqL7K6A_F6WajJ9g';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 let supabase = null;
 let currentUser = null;
@@ -460,12 +461,13 @@ async function handleLogin() {
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
 
-  if (!email || !pass) { errEl.textContent = 'fill in both fields'; return; }
+  if (!email || !pass) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ fill in both fields'; return; }
+  if (!email.includes('@') || !email.includes('.')) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ enter a valid email'; return; }
+  if (pass.length < 6) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ password: 6+ characters'; return; }
 
   if (!supabaseReady) {
-    // Offline mode — skip auth, use localStorage
-    currentUser = { id: 'local', email: email };
-    showApp();
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ offline — cannot verify login';
     return;
   }
 
@@ -474,7 +476,8 @@ async function handleLogin() {
   document.getElementById('loginBtn').textContent = 'LOG IN';
 
   if (error) {
-    errEl.textContent = error.message.toLowerCase();
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ ' + (error.message.includes('Invalid') ? 'wrong email or password' : error.message.toLowerCase());
   } else {
     currentUser = data.user;
     showApp();
@@ -487,12 +490,13 @@ async function handleSignup() {
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
 
-  if (!email || !pass) { errEl.textContent = 'fill in both fields'; return; }
-  if (pass.length < 6) { errEl.textContent = 'password: 6+ characters'; return; }
+  if (!email || !pass) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ fill in both fields'; return; }
+  if (!email.includes('@') || !email.includes('.')) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ enter a valid email'; return; }
+  if (pass.length < 6) { errEl.style.color = '#ff6666'; errEl.textContent = '⚠ password: 6+ characters'; return; }
 
   if (!supabaseReady) {
-    currentUser = { id: 'local', email: email };
-    showApp();
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ offline — cannot sign up';
     return;
   }
 
@@ -501,15 +505,16 @@ async function handleSignup() {
   document.getElementById('signupBtn').textContent = 'SIGN UP';
 
   if (error) {
-    errEl.textContent = error.message.toLowerCase();
-  } else if (data.user && !data.user.confirmed_at && data.user.identities?.length === 0) {
-    errEl.textContent = 'account exists — try logging in';
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ ' + error.message.toLowerCase();
+  } else if (data.user && data.user.identities?.length === 0) {
+    errEl.style.color = '#ff6666';
+    errEl.textContent = '⚠ account exists — try logging in';
   } else {
-    errEl.textContent = '';
     errEl.style.color = '#6a6';
-    errEl.textContent = 'check your email to confirm!';
-    // Some Supabase configs auto-confirm
-    if (data.session) {
+    errEl.textContent = '✓ check your email to confirm!';
+    // Only auto-login if email is confirmed (session exists means confirmed)
+    if (data.session && data.user?.confirmed_at) {
       currentUser = data.user;
       showApp();
     }
